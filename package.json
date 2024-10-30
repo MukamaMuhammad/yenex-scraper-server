@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.70",
+    "@sparticuz/chromium-min": "^130.0.0",
     "ai": "^3.4.20",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

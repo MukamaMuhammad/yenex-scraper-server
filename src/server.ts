@@ -98,6 +98,7 @@ app.post("/api/scrape", async (req, res) => {
       () => new Promise((resolve) => setTimeout(resolve, 3000))
     );
     const content = await page.content();
+    await browser.close();
     console.log("Content length:", content.length);
 
     // Use JSDOM for more advanced DOM manipulation
@@ -320,6 +321,7 @@ app.post("/api/scrape", async (req, res) => {
     // return result.toTextStreamResponse();
   } catch (error) {
     console.error("Error scraping webpage:", error);
+    await browser.close();
     res.status(500).json({ error: "Internal server error" });
     throw error;
   } finally {

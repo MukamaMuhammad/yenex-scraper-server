@@ -11,8 +11,19 @@ import { executablePath } from "puppeteer";
 import { JSDOM } from "jsdom";
 import type { ConstructorOptions } from "jsdom";
 import { openai } from "@ai-sdk/openai";
+import OpenAI from "openai";
 import { generateObject } from "ai";
 import { z } from "zod";
+import {
+  ProductSchema,
+  cleanContent,
+  getProductName,
+  scrapeSearchResults,
+  scrapeUrl,
+  searchGoogle,
+  selectBestImageWithVision,
+  summarizeContent,
+} from "./lib/functions";
 
 puppeteerExtra.use(StealthPlugin());
 
@@ -33,6 +44,10 @@ interface PowerElement {
 dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
+
+const openaiReal = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 // CORS configuration
 const corsOptions: cors.CorsOptions = {
@@ -328,6 +343,79 @@ app.post("/api/scrape", async (req, res) => {
     await browser.close();
   }
 });
+
+// Add the new route before app.listen
+app.post(
+  "/api/product-scraper",
+  async (req: Request<any, any, { url: string }>, res: Response) => {
+    try {
+      const { url } = req.body;
+      if (!url) {
+        res.status(400).json({ error: "URL is required" });
+        return;
+      }
+
+      const initialContent = await scrapeUrl(url);
+      if (!initialContent?.content) {
+        throw new Error("Failed to scrape initial URL");
+      }
+
+      const cleanedContent = await cleanContent(initialContent.content);
+      const productName = await getProductName(cleanedContent);
+      const searchResults = await searchGoogle(productName);
+      const limitedResults = searchResults.searchResults.slice(0, 7);
+
+      const { contents, images } = await scrapeSearchResults(
+        limitedResults,
+        productName
+      );
+      const bestImage = await selectBestImageWithVision(
+        images,
+        productName,
+        openaiReal
+      );
+
+      const summarizedContents = await Promise.all(
+        contents.map((result) => summarizeContent(result.content))
+      );
+
+      const combinedDetails = summarizedContents
+        .filter((summary) => typeof summary === "string" && summary.length > 0)
+        .join("\n\n");
+
+      const { object } = await generateObject({
+        model: openai("gpt-4o-mini"),
+        schema: ProductSchema,
+        prompt: `
+        Generate comprehensive product information for ${productName}.
+        Use this summarized content and specifications from multiple sources:
+
+        Content:
+        ${combinedDetails}
+
+        Generate a detailed response including:
+        1. Product name and description.(Description should be a detailed description of the product)
+        2. Ratings and reviews. (Should be related to the product)
+        3. Where to buy information. (Include the retailer, country, price and url)
+        4. Technical specifications as an array of label-value pairs
+        5. Frequently asked questions. (Should be technical questions or related to the product specifications)
+
+        Important: Format specifications as an array of objects with label and value properties.
+        Ensure all specifications are included and all information is factual.
+      `,
+      });
+
+      object.image = bestImage;
+      res.json(object);
+    } catch (error) {
+      console.error("Error in product scraper:", error);
+      res.status(500).json({
+        error: "Failed to scrape product information",
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

@@ -234,12 +234,12 @@ export const searchGoogle = async (query: string) => {
     await page.setViewport({ width: 1920, height: 1080 });
 
     // Navigate to Google and perform search
-    await page.goto("https://www.google.com", { timeout: 60000 });
+    await page.goto("https://www.google.com", { timeout: 100000 });
     await page.type('input[name="q"], textarea[name="q"]', query);
     await page.keyboard.press("Enter");
 
     // Wait for search results to load
-    await page.waitForSelector("#search");
+    await page.waitForSelector("#search", { timeout: 100000 });
     await page.evaluate(
       () => new Promise((resolve) => setTimeout(resolve, 2000))
     );

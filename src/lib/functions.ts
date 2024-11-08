@@ -221,20 +221,37 @@ export const searchGoogle = async (query: string) => {
     const browser: Browser = await puppeteer.launch({
       headless: true,
       executablePath: executablePath(),
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--disable-gpu",
+        "--window-size=1920x1080",
+      ],
     });
     console.log("Browser launched");
 
     const page = await browser.newPage();
 
-    // Set headers to avoid detection
+    // Enhanced browser configuration
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    );
     await page.setExtraHTTPHeaders({
       "Accept-Language": "en-US,en;q=0.9",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br",
     });
 
     await page.setViewport({ width: 1920, height: 1080 });
 
     // Navigate to Google and perform search
-    await page.goto("https://www.google.com", { timeout: 100000 });
+    await page.goto("https://www.google.com", {
+      timeout: 100000,
+      waitUntil: "networkidle0",
+    });
     await page.type('input[name="q"], textarea[name="q"]', query);
     await page.keyboard.press("Enter");
 

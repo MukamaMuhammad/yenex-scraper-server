@@ -214,50 +214,30 @@ export const cleanContent = async (content: string) => {
 };
 
 export const searchGoogle = async (query: string) => {
+  let browser;
   try {
-    // Launch puppeteer with the same configuration as scrapeUrl
-    const browser: Browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
       headless: true,
       executablePath: executablePath(),
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--disable-gpu",
-        "--window-size=1920x1080",
       ],
     });
-    console.log("Browser to scrape google is launched");
 
     const page = await browser.newPage();
-
-    // Enhanced browser configuration
+    await page.setViewport({ width: 1920, height: 1080 });
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
     );
-    await page.setExtraHTTPHeaders({
-      "Accept-Language": "en-US,en;q=0.9",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-      "Accept-Encoding": "gzip, deflate, br",
-    });
 
-    await page.setViewport({ width: 1920, height: 1080 });
-
-    // Navigate to Google and perform search
-    await page.goto("https://www.google.com", {
-      timeout: 100000,
+    // Directly navigate to search results
+    const encodedQuery = encodeURIComponent(query);
+    await page.goto(`https://www.google.com/search?q=${encodedQuery}`, {
       waitUntil: "networkidle0",
+      timeout: 30000,
     });
-    await page.type('input[name="q"], textarea[name="q"]', query);
-    await page.keyboard.press("Enter");
-
-    // Wait for search results to load
-    await page.waitForSelector("#search", { timeout: 100000 });
-    await page.evaluate(
-      () => new Promise((resolve) => setTimeout(resolve, 2000))
-    );
 
     // Extract search results
     const searchResults = await page.evaluate(() => {
@@ -307,6 +287,7 @@ export const searchGoogle = async (query: string) => {
     console.log("peopleAlsoAsk", peopleAlsoAsk);
     return { searchResults, peopleAlsoAsk };
   } catch (error) {
+    if (browser) await browser.close();
     console.error("Error searching Google:", error);
     throw error;
   }

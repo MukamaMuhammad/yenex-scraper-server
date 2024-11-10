@@ -51,12 +51,19 @@ const openaiReal = new OpenAI({
 
 // CORS configuration
 const corsOptions: cors.CorsOptions = {
-  origin: process.env.ALLOWED_ORIGINS?.split(",") || [],
-  methods: ["GET", "POST"],
+  origin: (origin, callback) => {
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   credentials: true,
-  optionsSuccessStatus: 204,
-  maxAge: 86400, // 24 hours
+  optionsSuccessStatus: 200,
+  maxAge: 86400,
 };
 
 app.use(cors(corsOptions));

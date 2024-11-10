@@ -330,6 +330,28 @@ export async function selectBestImageWithVision(
   if (!images.length) return null;
 
   try {
+    // Validate and filter image URLs before sending to OpenAI
+    const validImages = await Promise.all(
+      images.map(async (img) => {
+        try {
+          const response = await fetch(img.url, { method: "HEAD" });
+          return response.ok ? img : null;
+        } catch (error) {
+          console.warn(`Failed to validate image URL: ${img.url}`);
+          return null;
+        }
+      })
+    );
+
+    const filteredImages = validImages.filter(
+      (img): img is ProductImage => img !== null
+    );
+
+    if (filteredImages.length === 0) {
+      console.warn("No valid images found after validation");
+      return null;
+    }
+
     const response = await openaiReal.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -338,19 +360,11 @@ export async function selectBestImageWithVision(
           content: [
             {
               type: "text",
-              text: `You are a product image expert. Analyze these product images for "${productName}" and select the best one that represents the product professionally.
-              Consider:
-              1. Image clarity and quality
-              2. Product visibility and focus
-              3. Professional product photography
-              4. Accurate representation
-              5. Marketing appeal
-              
-              Return ONLY the index number (0-${
-                images.length - 1
-              }) of the best image.`,
+              text: `Select the best product image for "${productName}" considering clarity, quality, and professional presentation. Return only the index (0-${
+                filteredImages.length - 1
+              }).`,
             },
-            ...images.map((img) => ({
+            ...filteredImages.map((img) => ({
               type: "image_url" as const,
               image_url: {
                 url: img.url,
@@ -366,18 +380,10 @@ export async function selectBestImageWithVision(
     const selectedIndex = parseInt(
       response.choices[0]?.message?.content?.trim() ?? "0"
     );
-    if (
-      isNaN(selectedIndex) ||
-      selectedIndex < 0 ||
-      selectedIndex >= images.length
-    ) {
-      return images[0];
-    }
-
-    return images[selectedIndex];
+    return filteredImages[selectedIndex] || filteredImages[0] || null;
   } catch (error) {
     console.error("Error analyzing images with Vision:", error);
-    return images[0];
+    return images[0] || null;
   }
 }
 

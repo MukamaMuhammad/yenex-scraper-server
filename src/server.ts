@@ -56,6 +56,7 @@ const corsOptions: cors.CorsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   credentials: true,
   optionsSuccessStatus: 204,
+  maxAge: 86400, // 24 hours
 };
 
 app.use(cors(corsOptions));
@@ -348,6 +349,7 @@ app.post("/api/scrape", async (req, res) => {
 app.post(
   "/api/product-scraper",
   async (req: Request<any, any, { url: string }>, res: Response) => {
+    res.setTimeout(300000); // 5 minutes
     try {
       const { url } = req.body;
       if (!url) {
@@ -416,6 +418,15 @@ app.post(
     }
   }
 );
+
+// Add error handling middleware
+app.use((err: Error, req: Request, res: Response, next: Function) => {
+  console.error("Error:", err);
+  res.status(500).json({
+    error: "Internal Server Error",
+    message: process.env.NODE_ENV === "development" ? err.message : undefined,
+  });
+});
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

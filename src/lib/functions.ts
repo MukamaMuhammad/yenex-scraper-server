@@ -3,13 +3,13 @@ import { generateObject, generateText, streamObject } from "ai";
 import { JSDOM } from "jsdom";
 import type { ConstructorOptions } from "jsdom";
 import { z } from "zod";
-import puppeteer from "puppeteer";
-import puppeteerExtra from "puppeteer-extra";
+// import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { Browser } from "puppeteer";
 import { executablePath } from "puppeteer";
 
-puppeteerExtra.use(StealthPlugin());
+puppeteer.use(StealthPlugin());
 
 interface SearchResult {
   title: string;
@@ -83,7 +83,6 @@ async function extractProductImage(
 }
 
 export const scrapeUrl = async (url: string, productName?: string) => {
-  const isLocal = !!process.env.CHROME_EXECUTABLE_PATH;
   let browser;
 
   try {
@@ -215,7 +214,6 @@ export const cleanContent = async (content: string) => {
 };
 
 export const searchGoogle = async (query: string) => {
-  const isLocal = !!process.env.CHROME_EXECUTABLE_PATH;
   try {
     // Launch puppeteer with the same configuration as scrapeUrl
     const browser: Browser = await puppeteer.launch({
@@ -230,7 +228,7 @@ export const searchGoogle = async (query: string) => {
         "--window-size=1920x1080",
       ],
     });
-    console.log("Browser launched");
+    console.log("Browser to scrape google is launched");
 
     const page = await browser.newPage();
 

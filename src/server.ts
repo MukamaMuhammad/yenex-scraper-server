@@ -45,17 +45,28 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
+app.set("trust proxy", 1);
+
 const openaiReal = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// CORS configuration
+// Update CORS configuration
 const corsOptions: cors.CorsOptions = {
-  origin: process.env.ALLOWED_ORIGINS?.split(",") || [],
-  methods: ["GET", "POST"],
+  origin: (origin, callback) => {
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   credentials: true,
   optionsSuccessStatus: 204,
+  maxAge: 86400, // 24 hours
 };
 
 app.use(cors(corsOptions));
@@ -82,6 +93,14 @@ const limiter = rateLimit({
 
 // Apply rate limiting to all requests
 app.use(limiter);
+
+// Update timeout settings for the entire Express app
+app.use((req, res, next) => {
+  // Set timeout to 5 minutes
+  req.setTimeout(300000);
+  res.setTimeout(300000);
+  next();
+});
 
 //@ts-ignore
 app.post("/api/scrape", async (req, res) => {
@@ -348,8 +367,11 @@ app.post("/api/scrape", async (req, res) => {
 app.post(
   "/api/product-scraper",
   async (req: Request<any, any, { url: string }>, res: Response) => {
-    res.setTimeout(300000); // 5 minutes
     try {
+      // Add keep-alive header
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("Keep-Alive", "timeout=300");
+
       const { url } = req.body;
       if (!url) {
         res.status(400).json({ error: "URL is required" });

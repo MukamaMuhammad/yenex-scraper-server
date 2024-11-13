@@ -51,19 +51,11 @@ const openaiReal = new OpenAI({
 
 // CORS configuration
 const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: ["GET", "POST", "OPTIONS"],
+  origin: process.env.ALLOWED_ORIGINS?.split(",") || [],
+  methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   credentials: true,
-  optionsSuccessStatus: 200,
-  maxAge: 86400,
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
@@ -415,6 +407,7 @@ app.post(
       });
 
       object.image = bestImage;
+      console.log("object", object);
       res.json(object);
     } catch (error) {
       console.error("Error in product scraper:", error);

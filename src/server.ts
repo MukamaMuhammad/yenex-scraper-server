@@ -438,10 +438,10 @@ const sslOptions =
   process.env.NODE_ENV === "production"
     ? {
         key: fs.readFileSync(
-          "/etc/letsencrypt/live/your-domain.com/privkey.pem"
+          "/etc/letsencrypt/live/api.inbulk.xyz/privkey.pem"
         ),
         cert: fs.readFileSync(
-          "/etc/letsencrypt/live/your-domain.com/fullchain.pem"
+          "/etc/letsencrypt/live/api.inbulk.xyz/fullchain.pem"
         ),
       }
     : undefined;

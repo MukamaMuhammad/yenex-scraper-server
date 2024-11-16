@@ -49,16 +49,25 @@ const openaiReal = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// CORS configuration
+// CORS configuration - Updated to allow all origins
 const corsOptions: cors.CorsOptions = {
-  origin: process.env.ALLOWED_ORIGINS?.split(",") || [],
+  origin: "*",
   methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
   credentials: true,
   optionsSuccessStatus: 204,
 };
 
-app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-API-Key"
+  );
+  next();
+});
+
 app.use(express.json());
 app.use(helmet());
 

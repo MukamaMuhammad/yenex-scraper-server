@@ -438,14 +438,13 @@ const sslOptions =
   process.env.NODE_ENV === "production"
     ? {
         key: fs.readFileSync(
-          "/etc/letsencrypt/live/api.inbulk.xyz/privkey.pem"
+          "/home/scraper-api/scraper-server/certs/privkey.pem"
         ),
         cert: fs.readFileSync(
-          "/etc/letsencrypt/live/api.inbulk.xyz/fullchain.pem"
+          "/home/scraper-api/scraper-server/certs/fullchain.pem"
         ),
       }
     : undefined;
-
 // Update the listen code at the bottom
 if (process.env.NODE_ENV === "production" && sslOptions) {
   // Create HTTPS server

@@ -24,8 +24,6 @@ import {
   selectBestImageWithVision,
   summarizeContent,
 } from "./lib/functions";
-import https from "https";
-import fs from "fs";
 
 puppeteerExtra.use(StealthPlugin());
 
@@ -433,40 +431,7 @@ app.use((err: Error, req: Request, res: Response, next: Function) => {
   });
 });
 
-// Add SSL certificate configuration (before app.listen)
-const sslOptions =
-  process.env.NODE_ENV === "production"
-    ? {
-        key: fs.readFileSync(
-          "/home/scraper-api/scraper-server/certs/privkey.pem"
-        ),
-        cert: fs.readFileSync(
-          "/home/scraper-api/scraper-server/certs/fullchain.pem"
-        ),
-      }
-    : undefined;
-// Update the listen code at the bottom
-if (process.env.NODE_ENV === "production" && sslOptions) {
-  // Create HTTPS server
-  https.createServer(sslOptions, app).listen(443, () => {
-    console.log("HTTPS Server running on port 443");
-  });
-
-  // Redirect HTTP to HTTPS
-  app.use((req, res, next) => {
-    if (!req.secure) {
-      return res.redirect(`https://${req.headers.host}${req.url}`);
-    }
-    next();
-  });
-
-  // Also listen on HTTP port 80 for redirect
-  app.listen(80, () => {
-    console.log("HTTP Server running on port 80 (redirecting to HTTPS)");
-  });
-} else {
-  // Development server
-  app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-  });
-}
+// Development server
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});

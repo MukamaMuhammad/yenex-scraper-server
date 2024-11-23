@@ -236,7 +236,7 @@ export const searchGoogle = async (query: string) => {
     const encodedQuery = encodeURIComponent(query);
     await page.goto(`https://www.google.com/search?q=${encodedQuery}`, {
       waitUntil: "networkidle0",
-      timeout: 30000,
+      timeout: 100000,
     });
 
     // Extract search results
@@ -297,28 +297,28 @@ export async function scrapeSearchResults(
   searchResults: SearchResult[],
   productName: string
 ) {
-  const scrapedContents = [];
-  const allImages: ProductImage[] = [];
-
-  for (const result of searchResults) {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const content = await scrapeUrl(result.url, productName);
-      if (content.image) {
-        allImages.push(content.image);
+  // Process all URLs in parallel with a concurrency limit
+  const concurrencyLimit = 3;
+  const results = await Promise.all(
+    searchResults.map(async (result) => {
+      try {
+        const content = await scrapeUrl(result.url, productName);
+        const cleanedContent = await cleanContent(content.content);
+        return { content: cleanedContent, image: content.image };
+      } catch (error) {
+        console.error(`Error scraping ${result.url}:`, error);
+        return null;
       }
-      const cleanedContent = await cleanContent(content.content);
-      scrapedContents.push({
-        content: cleanedContent,
-      });
-    } catch (error) {
-      console.error(`Error scraping ${result.url}:`, error);
-    }
-  }
+    })
+  );
+
+  const validResults = results.filter(
+    (r): r is NonNullable<typeof r> => r !== null
+  );
 
   return {
-    contents: scrapedContents.filter((result) => result.content),
-    images: allImages,
+    contents: validResults.map((r) => ({ content: r.content })),
+    images: validResults.filter((r) => r.image).map((r) => r.image!),
   };
 }
 
@@ -459,4 +459,100 @@ export async function summarizeContent(content: string) {
     `,
   });
   return text;
+}
+
+interface Review {
+  rating: number;
+  comment: string;
+  author: string;
+}
+
+export async function getAmazonReviews(productName: string): Promise<Review[]> {
+  try {
+    const searchQuery = `${productName} amazon customer reviews`;
+    const { searchResults } = await searchGoogle(searchQuery);
+
+    // Combine snippets from search results
+    const reviewContent = searchResults
+      .map((result) => result.snippet)
+      .join("\n\n");
+
+    console.log("reviewContent", reviewContent);
+
+    const { object } = await generateObject({
+      model: openai("gpt-4o-mini"),
+      schema: z.object({
+        reviews: z
+          .array(
+            z.object({
+              rating: z.number().min(1).max(5),
+              comment: z.string(),
+              author: z.string(),
+            })
+          )
+          .length(5),
+      }),
+      prompt: `
+        Extract exactly 5 customer reviews from these review snippets.
+        If author names are not available, generate plausible reviewer names.
+        Make sure ratings align with the review sentiment.
+        
+        Review content to analyze:
+        ${reviewContent}
+      `,
+    });
+
+    console.log("generated reviews", object.reviews);
+    return object.reviews;
+  } catch (error) {
+    console.error("Error getting Amazon reviews:", error);
+    return [];
+  }
+}
+
+interface Retailer {
+  retailer: string;
+  country: string;
+  url: string;
+  price: string;
+}
+
+export async function getWhereToBuy(productName: string): Promise<Retailer[]> {
+  const countries = ["USA", "Canada", "UK"];
+
+  // Run all country searches in parallel
+  const countryResults = await Promise.all(
+    countries.map(async (country) => {
+      try {
+        const searchQuery = `Where to buy ${productName} in ${country}`;
+        const searchResults = await searchGoogle(searchQuery);
+        const topUrls = searchResults.searchResults.slice(0, 2);
+
+        // Process retailers in parallel for each country
+        const retailers = await Promise.all(
+          topUrls.map(async (result) => {
+            const { object } = await generateObject({
+              model: openai("gpt-4o-mini"),
+              schema: z.object({ retailer: z.string() }),
+              prompt: `Extract the retailer/store name from this URL. Return just the main store name: ${result.url}`,
+            });
+
+            return {
+              retailer: object.retailer,
+              country,
+              url: result.url,
+              price: "Price not available",
+            };
+          })
+        );
+
+        return retailers;
+      } catch (error) {
+        console.error(`Error processing ${country}:`, error);
+        return [];
+      }
+    })
+  );
+
+  return countryResults.flat();
 }

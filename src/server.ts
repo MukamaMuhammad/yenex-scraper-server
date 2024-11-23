@@ -23,6 +23,8 @@ import {
   searchGoogle,
   selectBestImageWithVision,
   summarizeContent,
+  getAmazonReviews,
+  getWhereToBuy,
 } from "./lib/functions";
 
 puppeteerExtra.use(StealthPlugin());
@@ -349,7 +351,6 @@ app.post(
   "/api/product-scraper",
   async (req: Request<any, any, { url: string }>, res: Response) => {
     try {
-      // Add response headers
       res.setHeader("Connection", "keep-alive");
       res.setHeader("Keep-Alive", "timeout=300");
 
@@ -366,13 +367,21 @@ app.post(
 
       const cleanedContent = await cleanContent(initialContent.content);
       const productName = await getProductName(cleanedContent);
-      const searchResults = await searchGoogle(productName);
-      const limitedResults = searchResults.searchResults.slice(0, 7);
+
+      // Get reviews and where to buy info in parallel
+      const [searchResults, reviews, whereToBuy] = await Promise.all([
+        searchGoogle(productName),
+        getAmazonReviews(productName),
+        getWhereToBuy(productName),
+      ]);
+
+      const limitedResults = searchResults.searchResults.slice(0, 5);
 
       const { contents, images } = await scrapeSearchResults(
         limitedResults,
         productName
       );
+
       const bestImage = await selectBestImageWithVision(
         images,
         productName,
@@ -392,25 +401,33 @@ app.post(
         schema: ProductSchema,
         prompt: `
         Generate comprehensive product information for ${productName}.
-        Use this summarized content and specifications from multiple sources:
+        Use this summarized content, reviews, and where to buy information from multiple sources:
 
         Content:
         ${combinedDetails}
 
-        Generate a detailed response including:
-        1. Product name and description.(Description should be a detailed description of the product)
-        2. Ratings and reviews. (Should be related to the product)
-        3. Where to buy information. (Include the retailer, country, price and url)
-        4. Technical specifications as an array of label-value pairs
-        5. Frequently asked questions. (Should be technical questions or related to the product specifications)
+        Reviews:
+        ${JSON.stringify(reviews, null, 2)}
 
-        Important: Format specifications as an array of objects with label and value properties.
+        Where to Buy:
+        ${JSON.stringify(whereToBuy, null, 2)}
+
+        Generate a detailed response including:
+        1. Product name and description (Should be around 600 characters)
+        2. Ratings and reviews (use the provided reviews)
+        3. Where to buy information (use the provided retailer data)
+        4. Technical specifications
+        5. Frequently asked questions (Both technical and non-technical questions are preferred)
+
+        Important: Use the exact reviews and retailer information provided.
         Ensure all specifications are included and all information is factual.
       `,
       });
 
       object.image = bestImage;
-      console.log("object", object);
+      object.reviews = reviews;
+      object.whereToBuy = whereToBuy;
+
       res.json(object);
     } catch (error) {
       console.error("Error in product scraper:", error);

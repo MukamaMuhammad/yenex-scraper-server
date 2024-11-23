@@ -349,24 +349,24 @@ app.post("/api/scrape", async (req, res) => {
 // Add the new route before app.listen
 app.post(
   "/api/product-scraper",
-  async (req: Request<any, any, { url: string }>, res: Response) => {
+  async (req: Request<any, any, { productName: string }>, res: Response) => {
     try {
       res.setHeader("Connection", "keep-alive");
       res.setHeader("Keep-Alive", "timeout=300");
 
-      const { url } = req.body;
-      if (!url) {
-        res.status(400).json({ error: "URL is required" });
+      const { productName } = req.body;
+      if (!productName) {
+        res.status(400).json({ error: "Product name is required" });
         return;
       }
 
-      const initialContent = await scrapeUrl(url);
-      if (!initialContent?.content) {
-        throw new Error("Failed to scrape initial URL");
-      }
+      // const initialContent = await scrapeUrl(url);
+      // if (!initialContent?.content) {
+      //   throw new Error("Failed to scrape initial URL");
+      // }
 
-      const cleanedContent = await cleanContent(initialContent.content);
-      const productName = await getProductName(cleanedContent);
+      // const cleanedContent = await cleanContent(initialContent.content);
+      // const productName = await getProductName(cleanedContent);
 
       // Get reviews and where to buy info in parallel
       const [searchResults, reviews, whereToBuy] = await Promise.all([
